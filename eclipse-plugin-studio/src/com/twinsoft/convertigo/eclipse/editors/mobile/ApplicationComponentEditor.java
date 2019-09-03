@@ -156,6 +156,7 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 	private int buildCount = 0;
 	
 	private static Pattern pIsServerRunning = Pattern.compile(".*?server running: (http\\S*).*");
+	private static Pattern pIsBrowserOpenable = Pattern.compile(".*?open your browser on (http\\S*).*");
 	private static Pattern pRemoveEchap = Pattern.compile("\\x1b\\[\\d+m");
 	private static Pattern pPriority = Pattern.compile("class(\\d+)");
 	private static Pattern pDatasetFile = Pattern.compile("(.+).json");
@@ -1181,6 +1182,8 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 			
 			MobileBuilder mb = project.getMobileBuilder();
 			
+			boolean isIonic4 = new File(ionicDir, "angular.json").exists();
+			
 			if (forceInstall || !nodeModules.exists() || mb.getNeedPkgUpdate()) {
 				boolean[] running = {true};
 				try {
@@ -1237,7 +1240,10 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 			
 			Object mutex = new Object();
 			mb.setBuildMutex(mutex);
-			mb.setAppBuildMode(buildMode);
+			if (!isIonic4) {
+				mb.setAppBuildMode(buildMode);
+			}
+			
 			try {
 				ConvertigoPlugin.getDefault().getProjectPluginResource(project.getName()).refreshLocal(IResource.DEPTH_INFINITE, null);
 			} catch (CoreException ce) {}
@@ -1255,39 +1261,92 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 				appendOutput("previous build directory removed");
 				this.applicationEditorInput.application.checkFolder();
 				
-				try {
-					File watchJS = new File(project.getDirPath(), "_private/ionic/node_modules/@ionic/app-scripts/dist/watch.js");
-					if (watchJS.exists()) {
-						int ms = ConvertigoPlugin.getMobileBuilderThreshold();
-						String txt = FileUtils.readFileToString(watchJS, "UTF-8");
-						String ntxt = txt.replaceAll("var BUILD_UPDATE_DEBOUNCE_MS = \\d+;", "var BUILD_UPDATE_DEBOUNCE_MS = " + ms + ";");
-						if (!txt.equals(ntxt)); {
-							FileUtils.writeStringToFile(watchJS, ntxt, "UTF-8");
+				if (isIonic4) {
+					try {
+						// TODO: to be removed -> has to be fixed in CAF
+						File routerJS = new File(project.getDirPath(), "_private/ionic/node_modules/c8ocaf/src/caf/convertigo.router.js");
+						if (routerJS.exists()) {
+							String txt = FileUtils.readFileToString(routerJS, "UTF-8");
+							String ntxt = txt.replaceAll("window\\[\\\"cordova\\\"\\]\\.InAppBrowser\\.open", "window[\"cordova\"][\"InAppBrowser\"].open");
+							if (!txt.equals(ntxt)); {
+								FileUtils.writeStringToFile(routerJS, ntxt, "UTF-8");
+							}
 						}
+						File routerTS = new File(project.getDirPath(), "_private/ionic/node_modules/c8ocaf/src/caf/convertigo.router.ts");
+						if (routerTS.exists()) {
+							String txt = FileUtils.readFileToString(routerTS, "UTF-8");
+							String ntxt = txt.replaceAll("window\\[\\\"cordova\\\"\\]\\.InAppBrowser\\.open", "window[\"cordova\"][\"InAppBrowser\"].open");
+							if (!txt.equals(ntxt)); {
+								FileUtils.writeStringToFile(routerTS, ntxt, "UTF-8");
+							}
+						}
+					} catch (Exception e) {
+						Engine.logStudio.warn("Failed to update CAF router", e);
 					}
-				} catch (Exception e) {
-					Engine.logStudio.warn("Failed to update DEBOUNCE", e);
+					
+				} else {
+					try {
+						File watchJS = new File(project.getDirPath(), "_private/ionic/node_modules/@ionic/app-scripts/dist/watch.js");
+						if (watchJS.exists()) {
+							int ms = ConvertigoPlugin.getMobileBuilderThreshold();
+							String txt = FileUtils.readFileToString(watchJS, "UTF-8");
+							String ntxt = txt.replaceAll("var BUILD_UPDATE_DEBOUNCE_MS = \\d+;", "var BUILD_UPDATE_DEBOUNCE_MS = " + ms + ";");
+							if (!txt.equals(ntxt)); {
+								FileUtils.writeStringToFile(watchJS, ntxt, "UTF-8");
+							}
+						}
+					} catch (Exception e) {
+						Engine.logStudio.warn("Failed to update DEBOUNCE", e);
+					}
+					
+					File assets = new File(displayObjectsMobile, "assets");
+					if (assets.exists() && assets.isDirectory()) {
+						appendOutput("Handle application assets");
+						Engine.logStudio.info("Handle application assets");
+						File privAssets = new File(ionicDir, "src/assets");
+						FileUtils.deleteDirectory(privAssets);
+						FileUtils.copyDirectory(assets, privAssets);
+					}
 				}
 				
-				File assets = new File(displayObjectsMobile, "assets");
-				if (assets.exists() && assets.isDirectory()) {
-					appendOutput("Handle application assets");
-					Engine.logStudio.info("Handle application assets");
-					File privAssets = new File(ionicDir, "src/assets");
-					FileUtils.deleteDirectory(privAssets);
-					FileUtils.copyDirectory(assets, privAssets);
+				ProcessBuilder pb = null;
+				if (isIonic4) {
+					// "ionic:build": "ng build app",
+					// "ionic:build:prod": "ng build app --prod=true",
+					// "ionic:serve:eval": "ng serve app --sourceMap=false --optimization=true",
+					// "ionic:serve:nosourcemap": "ng serve app --sourceMap=false",
+					// "ionic:serve": "ng serve app --sourceMap=true"
+					
+					pb = ProcessUtils.getNpmProcessBuilder("", "npm", "run", buildMode.command());
+					if (MobileBuilderBuildMode.production.equals(buildMode)) {
+						String SERVER_C8O_URL = EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL);
+						String baseHref = SERVER_C8O_URL.substring(SERVER_C8O_URL.lastIndexOf("/")) + "/projects/" + project.getName() + "/DisplayObjects/mobile/";
+						String deployUrl = SERVER_C8O_URL + "/projects/" + project.getName() + "/DisplayObjects/mobile/";
+						
+						List<String> cmd = pb.command();
+						cmd.add("--");
+						cmd.add("--outputPath=./../../DisplayObjects/mobile/");
+						cmd.add("--baseHref="+ baseHref);
+						cmd.add("--deployUrl="+ deployUrl);
+					} else {
+						List<String> cmd = pb.command();
+						cmd.add("--");
+						cmd.add("--port="+ NetworkUtils.nextAvailable(8100));
+						//cmd.add("--poll="+ ConvertigoPlugin.getMobileBuilderThreshold());
+					}
+				} else {
+					pb = ProcessUtils.getNpmProcessBuilder("", "npm", "run", buildMode.command(), "--nobrowser");
+					if (!MobileBuilderBuildMode.production.equals(buildMode)) {
+						List<String> cmd = pb.command();
+						cmd.add("--port");
+						cmd.add("" + NetworkUtils.nextAvailable(8100));
+						cmd.add("--livereload-port");
+						cmd.add("" + NetworkUtils.nextAvailable(35729));
+						cmd.add("--dev-logger-port");
+						cmd.add("" + NetworkUtils.nextAvailable(53703));
+					}
 				}
 				
-				ProcessBuilder pb = ProcessUtils.getNpmProcessBuilder("", "npm", "run", buildMode.command(), "--nobrowser");
-				if (!MobileBuilderBuildMode.production.equals(buildMode)) {
-					List<String> cmd = pb.command();
-					cmd.add("--port");
-					cmd.add("" + NetworkUtils.nextAvailable(8100));
-					cmd.add("--livereload-port");
-					cmd.add("" + NetworkUtils.nextAvailable(35729));
-					cmd.add("--dev-logger-port");
-					cmd.add("" + NetworkUtils.nextAvailable(53703));
-				}
 				pb.redirectErrorStream(true);
 				pb.directory(ionicDir);
 				Process p = pb.start();
@@ -1300,18 +1359,32 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 					if (StringUtils.isNotBlank(line)) {
 						Engine.logStudio.info(line);
 						appendOutput(line);
-						if (line.contains("build finished")) {
+						if ((isIonic4 && line.contains("Compiled successfully")) || (!isIonic4 && line.contains("build finished"))) {
 							synchronized (mutex) {
 								mutex.notify();
 							}
 						}
-						Matcher m = pIsServerRunning.matcher(line);
-						if (m.matches()) {
-							JSONObject envJSON = new JSONObject();
-							envJSON.put("remoteBase", EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL) + "/projects/" + project.getName() + "/_private");
-							FileUtils.write(new File(displayObjectsMobile, "env.json"), envJSON.toString(4), "UTF-8");
-							baseUrl = m.group(1);
-							doLoad();
+						
+						
+						if (isIonic4) {
+							Matcher m = pIsBrowserOpenable.matcher(line);
+							if (m.matches()) {
+								JSONObject envJSON = new JSONObject();
+								envJSON.put("remoteBase", EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL) + "/projects/" + project.getName() + "/_private");
+								FileUtils.write(new File(displayObjectsMobile, "env.json"), envJSON.toString(4), "UTF-8");
+								String sGroup = m.group(1);
+								baseUrl = sGroup.substring(0, sGroup.lastIndexOf("/")+1);//"http://localhost:8100/";
+								doLoad();
+							}
+						} else {
+							Matcher m = pIsServerRunning.matcher(line);
+							if (m.matches()) {
+								JSONObject envJSON = new JSONObject();
+								envJSON.put("remoteBase", EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL) + "/projects/" + project.getName() + "/_private");
+								FileUtils.write(new File(displayObjectsMobile, "env.json"), envJSON.toString(4), "UTF-8");
+								baseUrl = m.group(1);
+								doLoad();
+							}
 						}
 					}
 				}

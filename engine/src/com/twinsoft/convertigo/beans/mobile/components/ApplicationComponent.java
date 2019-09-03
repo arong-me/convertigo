@@ -1384,6 +1384,7 @@ public class ApplicationComponent extends MobileComponent implements IScriptComp
 			tplProjectName = getProject().getName();
 		}
 		return new File(Engine.projectDir(tplProjectName) + "/ionicTpl");
+		//return new File(Engine.projectDir(tplProjectName) + "/ionicTpl4");
 	}
 	
 	public String getTplProjectName() {

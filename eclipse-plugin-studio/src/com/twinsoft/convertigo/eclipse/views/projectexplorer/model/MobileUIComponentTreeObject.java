@@ -152,7 +152,7 @@ public class MobileUIComponentTreeObject extends MobileComponentTreeObject imple
 			project.refreshLocal(IResource.DEPTH_INFINITE, null);
 			
 			// Close editor and Reopen it after file has been rewritten
-			String relativePath = uic.getProject().getMobileBuilder().getFunctionTempTsRelativePath(uic);
+			String relativePath = uic.getProject().getMobileBuilder().doGetFunctionTempTsRelativePath(uic);
 			IFile file = project.getFile(relativePath);
 			closeComponentFileEditor(file);
 			
@@ -163,7 +163,7 @@ public class MobileUIComponentTreeObject extends MobileComponentTreeObject imple
 					return;
 				}
 			}
-			uic.getProject().getMobileBuilder().writeFunctionTempTsFile(uic, functionMarker);
+			uic.getProject().getMobileBuilder().doWriteFunctionTempTsFile(uic, functionMarker);
 			file.refreshLocal(IResource.DEPTH_ZERO, null);
 			
 			// Open file in editor
