@@ -29,6 +29,7 @@ import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.internal.genericeditor.ExtensionBasedTextEditor;
 
 import com.twinsoft.convertigo.beans.core.DatabaseObject;
 import com.twinsoft.convertigo.beans.core.Sequence;
@@ -248,6 +249,8 @@ public class StepTreeObject extends DatabaseObjectTreeObject implements INamedSo
 		if (activePage != null && getObject() instanceof SimpleStep) {
 			try {
 				activePage.openEditor(new JScriptEditorInput((SimpleStep) getObject(), project),
+//						"org.eclipse.ui.genericeditor.GenericEditor");
+//						"org.eclipse.ui.internal.genericeditor.ExtensionBasedTextEditor");
 										"com.twinsoft.convertigo.eclipse.editors.jscript.JScriptEditor");
 			}
 			catch(PartInitException e) {

@@ -153,8 +153,8 @@ import com.twinsoft.convertigo.engine.util.SimpleCipher;
 import com.twinsoft.convertigo.engine.util.URLUtils;
 import com.twinsoft.util.Log;
 
-import ts.eclipse.ide.core.TypeScriptCorePlugin;
-import ts.eclipse.ide.core.nodejs.IEmbeddedNodejs;
+//import ts.eclipse.ide.core.TypeScriptCorePlugin;
+//import ts.eclipse.ide.core.nodejs.IEmbeddedNodejs;
 
 /**
  * The main plugin class to be used in the desktop.
@@ -938,9 +938,9 @@ public class ConvertigoPlugin extends AbstractUIPlugin implements IStartup, Stud
 			}
 		});
 		
-		for (IEmbeddedNodejs node :TypeScriptCorePlugin.getNodejsInstallManager().getNodejsInstalls()) {
-			ProcessUtils.setNpmFolder(node.getPath().getParentFile());
-		}
+//		for (IEmbeddedNodejs node :TypeScriptCorePlugin.getNodejsInstallManager().getNodejsInstalls()) {
+//			ProcessUtils.setNpmFolder(node.getPath().getParentFile());
+//		}
 		
 		studioLog.message("Convertigo studio started");
 	}

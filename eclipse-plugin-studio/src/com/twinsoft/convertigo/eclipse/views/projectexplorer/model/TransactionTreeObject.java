@@ -420,7 +420,8 @@ public class TransactionTreeObject extends DatabaseObjectTreeObject implements I
 		if (activePage != null) {
 			try {
 				activePage.openEditor(new JScriptEditorInput(transaction, project),
-										"com.twinsoft.convertigo.eclipse.editors.jscript.JScriptEditor");
+						"org.eclipse.ui.genericeditor.GenericEditor");
+//										"com.twinsoft.convertigo.eclipse.editors.jscript.JScriptEditor");
 			} catch(PartInitException e) {
 				ConvertigoPlugin.logException(e, "Error while loading the transaction editor '" + transaction.getName() + "'");
 			} 

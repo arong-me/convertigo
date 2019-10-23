@@ -22,13 +22,13 @@ package com.twinsoft.convertigo.eclipse.editors.jscript;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.text.IDocument;
-import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.PartInitException;
-import org.eclipse.wst.jsdt.internal.ui.javaeditor.CompilationUnitEditor;
-import org.eclipse.wst.jsdt.ui.text.JavaScriptTextTools;
+//import org.eclipse.wst.jsdt.internal.ui.javaeditor.CompilationUnitEditor;
+//import org.eclipse.wst.jsdt.ui.text.JavaScriptTextTools;
+import org.eclipse.ui.internal.genericeditor.ExtensionBasedTextEditor;
 
 import com.twinsoft.convertigo.beans.core.DatabaseObject;
 import com.twinsoft.convertigo.beans.core.IJScriptContainer;
@@ -36,11 +36,11 @@ import com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
 import com.twinsoft.convertigo.eclipse.views.projectexplorer.ProjectExplorerView;
 
 @SuppressWarnings("restriction")
-public class JScriptEditor extends CompilationUnitEditor {
+public class JScriptEditor extends ExtensionBasedTextEditor {
 	private IEditorSite eSite;
 	private JScriptEditorInput eInput;
 	private IJScriptContainer jsContainer;
-	private JavaScriptTextTools jstt;
+//	private JavaScriptTextTools jstt;
 	
 	public JScriptEditor() {
 		super();
@@ -48,9 +48,9 @@ public class JScriptEditor extends CompilationUnitEditor {
 
 	@Override
 	public void dispose() {
-		if (jstt != null) {
-			jstt.dispose();
-		}
+//		if (jstt != null) {
+//			jstt.dispose();
+//		}
 		try {
 			eInput.getFile().delete(true, null);
 		} catch (CoreException e) {
@@ -95,6 +95,7 @@ public class JScriptEditor extends CompilationUnitEditor {
 	 * @see org.eclipse.ui.part.EditorPart#isDirty()
 	 */
 	public boolean isDirty() {
+//		return false;
 		return super.isDirty();
 	}
 
@@ -111,14 +112,14 @@ public class JScriptEditor extends CompilationUnitEditor {
 	 * (non-Javadoc)
 	 */
 	public void createPartControl(Composite parent) {
-		JavaScriptTextTools jstt = new JavaScriptTextTools(getPreferenceStore());
-		SourceViewerConfiguration configuration = new MyJSEditorSourceViewerConfiguration(jstt.getColorManager(), getPreferenceStore(), this, null);
-		setSourceViewerConfiguration(configuration);
-		try {
-			super.init(eSite, eInput);
-		} catch (PartInitException e) {
-			ConvertigoPlugin.logException(e, "Error inialiazing  Javascript editor'" + eInput.getName() + "'");
-		}
+//		JavaScriptTextTools jstt = new JavaScriptTextTools(getPreferenceStore());
+//		SourceViewerConfiguration configuration = new MyJSEditorSourceViewerConfiguration(jstt.getColorManager(), getPreferenceStore(), this, null);
+//		setSourceViewerConfiguration(configuration);
+//		try {
+//			super.init(eSite, eInput);
+//		} catch (PartInitException e) {
+//			ConvertigoPlugin.logException(e, "Error inialiazing  Javascript editor'" + eInput.getName() + "'");
+//		}
 		super.createPartControl(parent);
 		reload();
 		doSave(null);
@@ -130,7 +131,7 @@ public class JScriptEditor extends CompilationUnitEditor {
 	 * @see org.eclipse.ui.part.WorkbenchPart#setFocus()
 	 */
 	public void setFocus() {
-		super.setFocus();
+//		super.setFocus();
 	}
 	
 	/*
@@ -141,12 +142,13 @@ public class JScriptEditor extends CompilationUnitEditor {
 	 */
 	public void init(IEditorSite site, IEditorInput input) throws PartInitException {		
 		try {
-			setSite(site);
-			setInput(input);
+//			setSite(site);
+//			setInput(input);
+			super.init(site, input);
 			eSite = site;
 			eInput = (JScriptEditorInput) input;
 			jsContainer = eInput.getJScriptContainer();
-			setPartName(jsContainer.getEditorName());
+			setPartName(jsContainer.getEditorName() + ".js");
 		} catch (Exception e) {
 			throw new PartInitException("Unable to create JS editor", e);
 		}

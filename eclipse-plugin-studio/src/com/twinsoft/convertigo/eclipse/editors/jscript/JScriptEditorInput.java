@@ -24,19 +24,20 @@ import java.io.ByteArrayInputStream;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.ui.part.FileEditorInput;
+import org.eclipse.ui.part.FileInPlaceEditorInput;
 
 import com.twinsoft.convertigo.beans.core.DatabaseObject;
 import com.twinsoft.convertigo.beans.core.IJScriptContainer;
 import com.twinsoft.convertigo.beans.core.Project;
 
-public class JScriptEditorInput extends FileEditorInput {
+public class JScriptEditorInput extends FileInPlaceEditorInput {
 	
 	static private IFile makeFile(IJScriptContainer jsContainer, IProject project) {
 		String fullname = jsContainer.getFullName();
 		IFile file = project.getFile("_private/editor." + fullname + ".js");
 		try {
 			if (!file.exists()) {
-				file.create(new ByteArrayInputStream(new byte[0]), false, null);
+				file.create(new ByteArrayInputStream(jsContainer.getExpression().getBytes("UTF-8")), false, null);
 			}
 		} catch (Exception e) {
 		}
@@ -65,7 +66,7 @@ public class JScriptEditorInput extends FileEditorInput {
 
 	@Override
 	public String getName() {
-		return jsContainer.getName();
+		return jsContainer.getName() + ".js";
 	}
 
 	@Override

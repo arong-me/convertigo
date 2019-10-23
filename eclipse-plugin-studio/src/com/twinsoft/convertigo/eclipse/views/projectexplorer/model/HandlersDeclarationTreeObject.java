@@ -91,7 +91,8 @@ public class HandlersDeclarationTreeObject extends TreeObject implements IEditab
 		if (activePage != null) {
 			try {
 				activePage.openEditor(new JScriptEditorInput(transaction, project),
-										"com.twinsoft.convertigo.eclipse.editors.jscript.JScriptEditor");
+						"org.eclipse.ui.genericeditor.GenericEditor");
+//										"com.twinsoft.convertigo.eclipse.editors.jscript.JScriptEditor");
 				moveTo(selectedHandler.getName());
 			} catch(PartInitException e) {
 				ConvertigoPlugin.logException(e, "Error while loading the transaction editor '" + transaction.getName() + "'");
@@ -107,14 +108,14 @@ public class HandlersDeclarationTreeObject extends TreeObject implements IEditab
 									.getActivePage()
 									.getActiveEditor();
 		
-		if (editor instanceof JScriptEditor) {
-			JScriptEditor myEditor = (JScriptEditor) editor;
-			IDocumentProvider provider = myEditor.getDocumentProvider();
-			IDocument document = provider.getDocument(editor.getEditorInput());
-			String content = document.get();
-			int index = content.indexOf(handlerName);
-			myEditor.selectAndReveal(index, handlerName.length());
-		}
+//		if (editor instanceof JScriptEditor) {
+//			JScriptEditor myEditor = (JScriptEditor) editor;
+//			IDocumentProvider provider = myEditor.getDocumentProvider();
+//			IDocument document = provider.getDocument(editor.getEditorInput());
+//			String content = document.get();
+//			int index = content.indexOf(handlerName);
+//			myEditor.selectAndReveal(index, handlerName.length());
+//		}
 	}
 
 	@Override
