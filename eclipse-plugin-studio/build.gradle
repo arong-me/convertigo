@@ -93,7 +93,8 @@ task writeManifest(dependsOn: ['copyLicense', 'syncLib', ':engine:unzipSwaggerUI
 					'org.eclipse.ui.views',
 					'org.eclipse.wst.xml.ui',
 					'org.eclipse.wst.sse.ui',
-					'org.eclipse.wst.sse.core'
+					'org.eclipse.wst.sse.core',
+					'org.eclipse.wildwebdeveloper'
 					/*,
 					'org.eclipse.wst.jsdt.ui',
 					'org.eclipse.wst.jsdt.core',
