@@ -943,7 +943,6 @@ public class ConvertigoPlugin extends AbstractUIPlugin implements IStartup, Stud
 //					File nodeExe = new File(System.getProperty("org.eclipse.wildwebdeveloper.nodeJSLocation"));
 					ProcessUtils.setNpmFolder(nodeExe.getParentFile());
 				} catch (Exception e) {
-					// TODO: handle exception
 				}
 			});
 			
