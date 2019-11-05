@@ -43,6 +43,8 @@ import java.util.TreeSet;
 import javax.servlet.http.HttpSession;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.resources.IWorkspace;
@@ -151,6 +153,7 @@ import com.twinsoft.convertigo.engine.util.ProcessUtils;
 import com.twinsoft.convertigo.engine.util.PropertiesUtils;
 import com.twinsoft.convertigo.engine.util.SimpleCipher;
 import com.twinsoft.convertigo.engine.util.URLUtils;
+import com.twinsoft.convertigo.engine.util.ZipUtils;
 import com.twinsoft.util.Log;
 
 //import ts.eclipse.ide.core.TypeScriptCorePlugin;
@@ -697,10 +700,6 @@ public class ConvertigoPlugin extends AbstractUIPlugin implements IStartup, Stud
 	public void start(final BundleContext context) throws Exception {
 		super.start(context);
 		
-//		Engine.execute(() -> {
-//			new Browser(BrowserContext.defaultContext()).dispose();
-//		});
-		
 		IWorkbenchWindow activeWindow = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
 		if (activeWindow != null) {
 			IWorkbenchPage activePage = activeWindow.getActivePage();
@@ -918,6 +917,36 @@ public class ConvertigoPlugin extends AbstractUIPlugin implements IStartup, Stud
 		}
 
 		runAtStartup(() -> {
+			
+			Engine.execute(() -> {
+				
+				//"https://nodejs.org/dist/v9.11.2/node-v9.11.2-win-x64.zip"
+				try {
+					String version = "v9.11.2";
+					File npms = new File(Engine.USER_WORKSPACE_PATH, "npms");
+					File nodeExe = new File(npms, version + "/node.exe");
+					Engine.logStudio.warn("search node " + nodeExe);
+					if (!nodeExe.exists()) {
+						HttpGet get = new HttpGet("https://nodejs.org/dist/" + version + "/node-" + version + "-win-x64.zip");
+						Engine.logStudio.warn("download node " + get.getURI());
+						try (CloseableHttpResponse response = Engine.theApp.httpClient4.execute(get)) {
+							File zip = new File(npms, version + ".zip");
+							Engine.logStudio.warn("copying response to " + zip.getAbsolutePath());
+							FileUtils.copyInputStreamToFile(response.getEntity().getContent(), zip);
+							Engine.logStudio.warn("copying response to " + nodeExe.getParent());
+							ZipUtils.expandZip(zip.getAbsolutePath(), nodeExe.getParent(), "node-" + version + "-win-x64");
+							Engine.logStudio.warn("unzip done!");
+						}
+					}
+					Engine.logStudio.warn("node ready: nodeExe.getAbsolutePath()");
+					System.setProperty("org.eclipse.wildwebdeveloper.nodeJSLocation", nodeExe.getAbsolutePath());
+//					File nodeExe = new File(System.getProperty("org.eclipse.wildwebdeveloper.nodeJSLocation"));
+					ProcessUtils.setNpmFolder(nodeExe.getParentFile());
+				} catch (Exception e) {
+					// TODO: handle exception
+				}
+			});
+			
 			File[] templates = new File(Engine.TEMPLATES_PATH + "/project").listFiles();
 			if (templates != null) {
 				for (File tpl: templates) {
@@ -937,7 +966,6 @@ public class ConvertigoPlugin extends AbstractUIPlugin implements IStartup, Stud
 				}
 			}
 		});
-		
 //		for (IEmbeddedNodejs node :TypeScriptCorePlugin.getNodejsInstallManager().getNodejsInstalls()) {
 //			ProcessUtils.setNpmFolder(node.getPath().getParentFile());
 //		}
