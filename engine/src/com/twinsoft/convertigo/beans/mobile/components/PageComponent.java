@@ -81,6 +81,7 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 		cloned.pageDeclarations = new HashMap<String, String>();
 		cloned.pageConstructors = new HashMap<String, String>();
 		cloned.pageFunctions = new HashMap<String, String>();
+		cloned.pageTemplates = new HashMap<String, String>();
 		cloned.computedContents = null;
 		cloned.contributors = null;
 		cloned.isRoot = isRoot;
@@ -457,6 +458,16 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 		this.preloadPriority = preloadPriority;
 	}
 
+	private String defaultHistory = "[]";
+	
+	public String getDefaultHistory() {
+		return defaultHistory;
+	}
+
+	public void setDefaultHistory(String defaultHistory) {
+		this.defaultHistory = defaultHistory;
+	}
+	
 	private transient Map<String, String> pageImports = new HashMap<String, String>();
 	
 	private boolean hasImport(String name) {
@@ -544,6 +555,25 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 		return false;
 	}
 	
+	private transient Map<String, String> pageTemplates = new HashMap<String, String>();
+	
+	private boolean hasTemplate(String name) {
+		return pageTemplates.containsKey(name);
+	}
+	
+	@Override
+	public boolean addTemplate(String name, String code) {
+		if (name != null && code != null && !name.isEmpty() && !code.isEmpty()) {
+			synchronized (pageTemplates) {
+				if (!hasTemplate(name)) {
+					pageTemplates.put(name, code);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
 	protected Map<String, Set<String>> getInfoMap() {
 		Set<UIComponent> done = new HashSet<>();
 		Map<String, Set<String>> map = new HashMap<String, Set<String>>();
@@ -604,6 +634,7 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 			pageDeclarations.clear();
 			pageConstructors.clear();
 			pageFunctions.clear();
+			pageTemplates.clear();
 			JSONObject newComputedContent = initJsonComputed();
 			
 			JSONObject jsonScripts = newComputedContent.getJSONObject("scripts");
@@ -858,6 +889,7 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 	
 	@Override
 	public String computeTemplate() {
+		// compute page template
 		StringBuilder sb = new StringBuilder();
 		Iterator<UIComponent> it = getUIComponentList().iterator();
 		while (it.hasNext()) {
@@ -869,7 +901,19 @@ public class PageComponent extends MobileComponent implements ITagsProperty, ISc
 				}
 			}
 		}
-		return sb.toString();
+		
+		// then add all necessary shared component templates
+		String sharedTemplates = "";
+		if (!pageTemplates.isEmpty()) {
+			sharedTemplates += "<!-- ====== SHARED TEMPLATES ====== -->"+ System.lineSeparator();
+			for (String sharedTemplate: pageTemplates.values()) {
+				sharedTemplates += sharedTemplate;
+			}
+			sharedTemplates += "<!-- ============================== -->"+ System.lineSeparator();
+			sharedTemplates += System.lineSeparator();
+		}
+		
+		return sharedTemplates + sb.toString();
 	}
 
 	public String getComputedStyle() {

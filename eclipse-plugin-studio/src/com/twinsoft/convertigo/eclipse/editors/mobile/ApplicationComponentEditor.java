@@ -74,8 +74,11 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IEditorSite;
+import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.EditorPart;
 
 import com.teamdev.jxbrowser.browser.Browser;
@@ -94,10 +97,12 @@ import com.twinsoft.convertigo.beans.core.MobileComponent;
 import com.twinsoft.convertigo.beans.core.Project;
 import com.twinsoft.convertigo.beans.mobile.components.ApplicationComponent;
 import com.twinsoft.convertigo.beans.mobile.components.PageComponent;
+import com.twinsoft.convertigo.beans.mobile.components.UIActionStack;
 import com.twinsoft.convertigo.beans.mobile.components.UIComponent;
 import com.twinsoft.convertigo.beans.mobile.components.UIControlEvent;
 import com.twinsoft.convertigo.beans.mobile.components.UIDynamicAction;
 import com.twinsoft.convertigo.beans.mobile.components.UIDynamicElement;
+import com.twinsoft.convertigo.beans.mobile.components.UIDynamicInvoke;
 import com.twinsoft.convertigo.beans.mobile.components.UISharedComponent;
 import com.twinsoft.convertigo.beans.mobile.components.UIUseShared;
 import com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
@@ -1172,7 +1177,35 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 		final MobileBuilderBuildMode buildMode = this.buildMode;
 		final int buildCount = ++this.buildCount;
 		final boolean isDark = SwtUtils.isDark();
+
+		// Close editors (*.temp.ts) to avoid npm error at build launch
+		ConvertigoPlugin.getDisplay().syncExec(
+			new Runnable() {
+				public void run() {
+					try {
+						MobileComponent mc = applicationEditorInput.application;
+						IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+						if (activePage != null) {
+							IEditorReference[] editorRefs = activePage.getEditorReferences();
+							for (int i = 0; i < editorRefs.length; i++) {
+								IEditorReference editorRef = (IEditorReference) editorRefs[i];
+								try {
+									IEditorInput editorInput = editorRef.getEditorInput();
+									if (editorInput != null && editorInput instanceof ComponentFileEditorInput) {
+										if (((ComponentFileEditorInput)editorInput).is(mc) ||
+											((ComponentFileEditorInput)editorInput).isChildOf(mc)) {
+												activePage.closeEditor(editorRef.getEditor(false), false);
+										}
+									}
+								} catch(Exception e) {}
+							}
+						}
+					} catch (Throwable t) {}
+				}
+			}
+		);
 		
+		// Launch build
 		Engine.execute(() -> {
 			try {
 				String loader = IOUtils.toString(getClass().getResourceAsStream("loader.html"), "UTF-8");
@@ -1254,6 +1287,7 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 			} catch (CoreException ce) {}
 			
 			try {
+				mb.startBuild();
 				File displayObjectsMobile = new File(project.getDirPath(), "DisplayObjects/mobile");
 				displayObjectsMobile.mkdirs();
 				
@@ -1313,10 +1347,11 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 					if (StringUtils.isNotBlank(line)) {
 						Engine.logStudio.info(line);
 						appendOutput(line);
-						if (line.contains("build finished")) {
+						if (line.matches(".*build .*finished.*")) {
 							synchronized (mutex) {
 								mutex.notify();
 							}
+							mb.buildFinished();
 						}
 						Matcher m = pIsServerRunning.matcher(line);
 						if (m.matches()) {
@@ -1324,6 +1359,10 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 							envJSON.put("remoteBase", EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL) + "/projects/" + project.getName() + "/_private");
 							FileUtils.write(new File(displayObjectsMobile, "env.json"), envJSON.toString(4), "UTF-8");
 							baseUrl = m.group(1);
+							synchronized (mutex) {
+								mutex.notify();
+							}
+							mb.buildFinished();
 							doLoad();
 						}
 					}
@@ -1349,6 +1388,7 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 					mutex.notify();
 				}
 				mb.setBuildMutex(null);
+				mb.buildFinished();
 				try {
 					ConvertigoPlugin.getDefault().getProjectPluginResource(project.getName()).refreshLocal(IResource.DEPTH_INFINITE, null);
 				} catch (CoreException ce) {}
@@ -1429,9 +1469,20 @@ public class ApplicationComponentEditor extends EditorPart implements MobileEven
 						@Override
 						protected void walk(DatabaseObject databaseObject) throws Exception {
 							if (databaseObject instanceof UIUseShared) {
-								UISharedComponent uisc = ((UIUseShared)databaseObject).getTargetSharedComponent();
+								UIUseShared uius = (UIUseShared)databaseObject;
+								UISharedComponent uisc = uius.getTargetSharedComponent();
 								if (uisc != null) {
-									databaseObject = uisc;
+									if (!uius.isRecursive()) {
+										databaseObject = uisc;
+									}
+								}
+							} else if (databaseObject instanceof UIDynamicInvoke) {
+								UIDynamicInvoke uidi = (UIDynamicInvoke)databaseObject;
+								UIActionStack uisa = uidi.getTargetSharedAction();
+								if (uisa != null) {
+									if (!uidi.isRecursive()) {
+										databaseObject = uisa;
+									}
 								}
 							}
 							

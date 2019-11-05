@@ -203,6 +203,7 @@ public class MobileBuilder {
 	private MbWorker worker = null;
 	
 	private Project project = null;
+	private boolean[] isBuilding = {false};
 	boolean needPkgUpdate = false;
 	boolean initDone = false;
 	boolean autoBuild = true;
@@ -1327,6 +1328,7 @@ public class MobileBuilder {
 		String pageName = page.getName();
 		String c8o_PageName = pageName;
 		//String c8o_PageIonicName = pageName;
+		String c8o_PageHistory = page.getDefaultHistory();
 		String c8o_PagePriority = page.getPreloadPriority();
 		String c8o_PageSegment = page.getSegment();
 		String c8o_PageTplUrl = pageName.toLowerCase() + ".html";
@@ -1342,6 +1344,7 @@ public class MobileBuilder {
 		//tsContent = tsContent.replaceAll("/\\*\\=c8o_PageIonicName\\*/","'"+c8o_PageIonicName+"'");
 		tsContent = tsContent.replaceAll("/\\*\\=c8o_PagePriority\\*/","'"+c8o_PagePriority+"'");
 		tsContent = tsContent.replaceAll("/\\*\\=c8o_PageSegment\\*/","'"+c8o_PageSegment+"'");
+		tsContent = tsContent.replaceAll("/\\*\\=c8o_PageHistory\\*/",c8o_PageHistory);
 		
 		tsContent = tsContent.replaceAll("/\\*\\=c8o_PageSelector\\*/","'"+c8o_PageSelector+"'");
 		tsContent = tsContent.replaceAll("/\\*\\=c8o_PageTplUrl\\*/","'"+c8o_PageTplUrl+"'");
@@ -1679,7 +1682,7 @@ public class MobileBuilder {
 				Set<String> module_ng_declarations =  new HashSet<String>();
 				Set<String> module_ng_components =  new HashSet<String>();
 				
-				//Menus contributors
+				//App contributors
 				for (Contributor contributor : app.getContributors()) {
 					comp_beans_dirs.putAll(contributor.getCompBeanDir());
 
@@ -1713,6 +1716,20 @@ public class MobileBuilder {
 							module_ng_components.addAll(contributor.getModuleNgComponents());
 						}
 					} else {
+
+						List<Contributor> contributors = page.getContributors();
+						for (Contributor contributor : contributors) {
+							if (contributor.isNgModuleForApp()) {
+								comp_beans_dirs.putAll(contributor.getCompBeanDir());
+								
+								module_ts_imports.putAll(contributor.getModuleTsImports());
+								module_ng_imports.addAll(contributor.getModuleNgImports());
+								module_ng_providers.addAll(contributor.getModuleNgProviders());
+								module_ng_declarations.addAll(contributor.getModuleNgDeclarations());
+								module_ng_components.addAll(contributor.getModuleNgComponents());
+							}
+						}
+						
 						writePageModuleTs(page);
 					}
 					
@@ -1849,7 +1866,7 @@ public class MobileBuilder {
 			String pageIcon = page.getIcon();
 			String pageIconPos = page.getIconPosition();
 			String pageTitle = page.getTitle();
-			String pageTitleKey = TranslateUtils.computeKey(page.getTitle());
+			String pageTitleKey = TranslateUtils.getComputedKey(project, page.getTitle());
 			boolean isRootPage = page.isRoot;
 			boolean isMenuPage = page.isInAutoMenu();
 			boolean isLastPage = i == pages.size();
@@ -2331,6 +2348,30 @@ public class MobileBuilder {
 					if (queue.offer(map)) {
 						pushedFiles.clear();
 					}
+				}
+			}
+		}
+	}
+
+	public void startBuild() {
+		synchronized (isBuilding) {
+			isBuilding[0] = true;
+		}
+	}
+	
+	public void buildFinished() {
+		synchronized (isBuilding) {
+			isBuilding[0] = false;
+			isBuilding.notify();
+		}
+	}
+	
+	public void waitBuildFinished() {
+		synchronized (isBuilding) {
+			if (isBuilding[0]) {
+				try {
+					isBuilding.wait(60000);
+				} catch (InterruptedException e) {
 				}
 			}
 		}

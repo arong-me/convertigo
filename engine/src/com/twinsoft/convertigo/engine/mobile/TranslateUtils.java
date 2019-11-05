@@ -45,6 +45,7 @@ public class TranslateUtils {
 		}
 		
 		public void translate(Locale from, File fromFile, Locale to, File toFile) throws EngineException {
+			boolean failed = false;
 			try {
 				// load source file (from)
 				JSONObject jsonObject = loadTranslations(fromFile);
@@ -52,7 +53,6 @@ public class TranslateUtils {
 				// translate using free google api
 				JSONObject translations = new JSONObject();
 				String value = null, key = null;
-				boolean failed = false;
 				try {
 					@SuppressWarnings("unchecked")
 					Iterator<String> it = jsonObject.keys();
@@ -69,8 +69,14 @@ public class TranslateUtils {
 						URL obj = new URL(url);
 						HttpURLConnection con = (HttpURLConnection) obj.openConnection(); 
 						con.setRequestProperty("User-Agent", "Mozilla/5.0");
+						con.setRequestProperty("Accept-Charset", "UTF-8");	
 						
-						BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+						String encoding = con.getContentEncoding();
+						if (encoding == null) {
+							encoding = "UTF-8";
+						}
+						
+						BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), encoding));
 						StringBuffer response = new StringBuffer();
 						String inputLine;
 						while ((inputLine = in.readLine()) != null) {
@@ -92,12 +98,14 @@ public class TranslateUtils {
 					} else {
 						storeTranslations(translations, toFile);
 					}
-				} else {
-					throw new EngineException("Unable to translate file through google api");
 				}
 				
 			} catch (Exception e) {
-				new EngineException("Unexpected error while translating file", e);
+				if (failed) {
+					throw new EngineException("Unable to translate file through google api", e);
+				} else {
+					throw new EngineException("Unexpected error while translating file", e);
+				}
 			}
 		}
 		
@@ -142,6 +150,16 @@ public class TranslateUtils {
 		return text;
 	}
 	
+	public static String getComputedKey(Project project, String text) {
+		if (existTranslationFiles(project)) {
+			String key = computeKey(text);
+			if (key != null  && !key.isEmpty()) {
+				return key;
+			}
+		}
+		return text;
+	}
+	
 	private static String escape(String text) {
 		String escaped = text;
 		escaped = escaped.replaceAll("\\'", "\'");
@@ -149,7 +167,7 @@ public class TranslateUtils {
 		return escaped;
 	}
 	
-	public static String computeKey(String text) {
+	private static String computeKey(String text) {
 		if (text != null  && !text.isEmpty()) {
 			String escaped = escape(text);
 			return escaped.length() < 40 ? escaped : escaped.substring(0, 40);
@@ -166,7 +184,7 @@ public class TranslateUtils {
 			if (key != null) {
 				try {
 					if (jsonObject.has(key)) {
-						Engine.logEngine.warn("(TranslateUtils) For text \""+text+"\" : key \""+key+"\" already exist with value \""+jsonObject.getString(key)+"\"");
+						Engine.logEngine.debug("(TranslateUtils) For text \""+text+"\" : key \""+key+"\" already exist with value \""+jsonObject.getString(key)+"\"");
 					} else {
 						jsonObject.put(key, text);
 					}

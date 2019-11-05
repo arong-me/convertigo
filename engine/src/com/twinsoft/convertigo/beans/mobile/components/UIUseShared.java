@@ -26,7 +26,9 @@ import java.util.Set;
 
 import org.codehaus.jettison.json.JSONObject;
 
+import com.twinsoft.convertigo.beans.core.DatabaseObject;
 import com.twinsoft.convertigo.beans.core.Project;
+import com.twinsoft.convertigo.beans.mobile.components.UIControlDirective.AttrDirective;
 import com.twinsoft.convertigo.engine.Engine;
 import com.twinsoft.convertigo.engine.EngineException;
 
@@ -83,13 +85,29 @@ public class UIUseShared extends UIElement {
 		return null;
 	}
 	
+	public boolean isRecursive() {
+		UISharedComponent parentSharedComp = ((UIUseShared)this.getOriginal()).getSharedComponent();
+		// if UIUseShared is in a UISharedComponent
+		if (parentSharedComp != null) {
+			UISharedComponent targetSharedComp = this.getTargetSharedComponent();
+			// if UIUseShared has a target UISharedComponent
+			if (targetSharedComp != null) {
+				// if they are the same
+				if (parentSharedComp.priority == targetSharedComp.priority) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
 	@Override
 	public String computeTemplate() {
 		String computed = "";
 		if (isEnabled()) {
+			UISharedComponent parentSharedComp = ((UIUseShared)this.getOriginal()).getSharedComponent();
 			UISharedComponent uisc = getTargetSharedComponent();
 			if (uisc != null) {
-				
 				StringBuilder compVars = new StringBuilder();
 				Iterator<UIComponent> it1 = uisc.getUIComponentList().iterator();
 				while (it1.hasNext()) {
@@ -124,13 +142,86 @@ public class UIUseShared extends UIElement {
 					}
 				}
 				
-				String params = "merge({" + compVars.toString() + "},{" + useVars.toString() + "})";
-				computed += "<ng-container *ngFor=\"let params"+ uisc.priority +" of ["+params+"]\" >" + System.getProperty("line.separator");
-				computed += uisc.computeTemplate(this);
-				computed += "</ng-container>" + System.getProperty("line.separator");
+				String scope = getScope();
+				String params = "merge(merge({" + compVars.toString() + "},{" + useVars.toString() + "}),{scope:"+ scope +"})";
+				
+				// recursive case
+				if (parentSharedComp != null && parentSharedComp.priority == uisc.priority) {
+					computed += "<ng-container *ngTemplateOutlet=\"sc"+ uisc.priority +";context:{params"+ uisc.priority +": "+params+"}\"></ng-container>" + System.getProperty("line.separator");
+				}
+				// other cases
+				else {
+					IScriptComponent main = getMainScriptComponent();
+					if (main != null) {
+						String sharedTemplate = uisc.computeTemplate(this);
+						main.addTemplate("sc"+ uisc.priority, sharedTemplate);
+					}
+					computed += "<ng-container *ngTemplateOutlet=\"sc"+ uisc.priority +";context:{params"+ uisc.priority +": "+params+"}\"></ng-container>" + System.getProperty("line.separator");
+				}
 			}
 		}
 		return computed;
+	}
+	
+	protected String getScope() {
+		UIUseShared original = (UIUseShared) getOriginal();
+		UISharedComponent sharedComponent = original.getSharedComponent();
+		boolean isInSharedComponent = sharedComponent  != null;
+
+		String scope = "";
+		
+		DatabaseObject parent = getParent();
+		while (parent != null && !(parent instanceof UIAppEvent) && !(parent instanceof UIPageEvent) && !(parent instanceof UIEventSubscriber)) {
+			if (parent instanceof UIUseShared) {
+				UISharedComponent uisc = ((UIUseShared) parent).getTargetSharedComponent();
+				if (uisc != null) {
+					scope += !scope.isEmpty() ? ", ":"";
+					scope += "params"+uisc.priority + ": "+ "params"+uisc.priority;
+				}
+				if (isInSharedComponent) {
+					break;
+				}
+			}
+			if (parent instanceof UIControlDirective) {
+				UIControlDirective uicd = (UIControlDirective)parent;
+				if (AttrDirective.ForEach.equals(AttrDirective.getDirective(uicd.getDirectiveName()))) {
+					scope += !scope.isEmpty() ? ", ":"";
+					scope += "item"+uicd.priority + ": "+ "item"+uicd.priority;
+					
+					String item = uicd.getDirectiveItemName();
+					if (!item.isEmpty()) {
+						scope += !scope.isEmpty() ? ", ":"";
+						scope += item + ": "+ item;
+					}
+					String index = uicd.getDirectiveIndexName();
+					if (!index.isEmpty()) {
+						scope += !scope.isEmpty() ? ", ":"";
+						scope += index + ":" + index;
+					}
+				}
+			}
+			if (parent instanceof UIElement) {
+				String identifier = ((UIElement)parent).getIdentifier();
+				if (!identifier.isEmpty()) {
+					scope += !scope.isEmpty() ? ", ":"";
+					scope += identifier+ ": "+ identifier;
+				}			
+			}
+			
+			parent = parent.getParent();
+		}
+		
+		if (!scope.isEmpty()) {
+			if (isInSharedComponent) {
+				scope = "merge(merge({}, params"+ sharedComponent.priority +".scope), {"+ scope +"})";
+			} else {
+				scope = "merge({}, {"+ scope +"})";
+			}
+		} else {
+			scope = "{}";
+		}
+		
+		return scope;
 	}
 	
 	@Override
@@ -138,7 +229,9 @@ public class UIUseShared extends UIElement {
 		if (isEnabled()) {
 			UISharedComponent uisc = getTargetSharedComponent();
 			if (uisc != null) {
-				uisc.computeScripts(this, jsonScripts);
+				if (!isRecursive()) {
+					uisc.computeScripts(this, jsonScripts);
+				}
 			}
 		}
 	}
@@ -147,7 +240,9 @@ public class UIUseShared extends UIElement {
 	public String computeStyle() {
 		UISharedComponent uisc = getTargetSharedComponent();
 		if (uisc != null) {
-			return uisc.computeStyle(this);
+			if (!isRecursive()) {
+				return uisc.computeStyle(this);
+			}
 		}
 		return "";
 	}
@@ -160,7 +255,9 @@ public class UIUseShared extends UIElement {
 			if (!done.add(this)) {
 				return;
 			}
-			uisc.addPageEvent(this, done, eventList);
+			if (!isRecursive()) {
+				uisc.addPageEvent(this, done, eventList);
+			}
 		}
 	}
 
@@ -172,7 +269,9 @@ public class UIUseShared extends UIElement {
 			if (!done.add(this)) {
 				return;
 			}
-			uisc.addEventSubscriber(this, done, eventList);
+			if (!isRecursive()) {
+				uisc.addEventSubscriber(this, done, eventList);
+			}
 		}
 	}
 
@@ -183,7 +282,9 @@ public class UIUseShared extends UIElement {
 			if (!done.add(this)) {
 				return;
 			}
-			uisc.addContributors(this, done, contributors);
+			if (!isRecursive()) {
+				uisc.addContributors(this, done, contributors);
+			}
 		}
 	}
 	
@@ -194,7 +295,9 @@ public class UIUseShared extends UIElement {
 			if (!done.add(this)) {
 				return;
 			}
-			uisc.addInfos(this, done, infoMap);
+			if (!isRecursive()) {
+				uisc.addInfos(this, done, infoMap);
+			}
 		}
 	}
 	
