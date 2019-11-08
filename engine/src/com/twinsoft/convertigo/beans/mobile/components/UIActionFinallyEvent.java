@@ -17,22 +17,24 @@
  * if not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.twinsoft.convertigo.engine.admin.services;
+package com.twinsoft.convertigo.beans.mobile.components;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+public class UIActionFinallyEvent extends UIActionEvent {
 
-import com.twinsoft.convertigo.engine.admin.util.ServiceUtils;
+	private static final long serialVersionUID = -5208251857060343604L;
 
-public abstract class DownloadService implements Service {
-
-	public void run(String serviceName, HttpServletRequest request, HttpServletResponse response) throws ServiceException {
-        try {
-			writeResponseResult(request, response);
-		} catch (Throwable t) {
-	    	ServiceUtils.handleError(t, request, response);
-		}
+	public UIActionFinallyEvent() {
+		super();
 	}
-
-	protected abstract void writeResponseResult(HttpServletRequest request, HttpServletResponse response) throws  Exception;
+	
+	@Override
+	public UIActionFinallyEvent clone() throws CloneNotSupportedException {
+		UIActionFinallyEvent cloned = (UIActionFinallyEvent) super.clone();
+		return cloned;
+	}
+	
+	@Override
+	public String toString() {
+		return "onFinally";
+	}
 }
